@@ -83,5 +83,25 @@ function drawScatterplot() {
         circle(x, y, 10)
     }
 
+    for (let child of displayElement.child()) {
+        child.remove()
+    }
+    let elementData = createDiv()
+
+    for (let element of data) {
+        const x = map(element[xName], xDataMin, xDataMax, border, width-border)
+        const y = map(element[yName], yDataMin, yDataMax, height-border, border)
+
+        if (dist(x, y, mouseX, mouseY) < 5) {
+            const decodedElement = loadedData.decodeElement(element)
+            
+            for (let key in decodedElement) {
+                createDiv(key + ': ' + decodedElement[key]).parent(elementData)
+            }
+            break
+        }
+    }
+
+    elementData.parent(displayElement)
     pop()
 }
