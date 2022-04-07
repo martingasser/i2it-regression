@@ -1,10 +1,114 @@
 let loadedData = null
+let predictedDataRange = null
+let tensorData = null
+let model = null
+let predictedData = null
+
 
 let xSel
 let ySel
 let visorElement
 let displayElement
 let displayCanvas
+
+const batchSize = 32;
+const epochs = 100;
+
+function createTFModel() {
+    // Create a sequential model
+    const model = tf.sequential()
+    // Add a single input layer
+    model.add(tf.layers.dense({ inputShape: [1], units: 1 }))
+
+    // Add two more layers
+    // model.add(tf.layers.dense({units: 50, activation: 'sigmoid'}))
+    // model.add(tf.layers.dense({units: 20, activation: 'sigmoid'}))
+    
+    // Add an output layer
+    model.add(tf.layers.dense({ units: 1 }))
+    return model
+}
+
+function trainModel() {
+    const {inputs, labels} = tensorData
+    let model = createTFModel()
+    tfvis.show.modelSummary(visorElement.elt, model);
+    // Prepare the model for training.
+    model.compile({
+        optimizer: tf.train.adam(),
+        loss: tf.losses.meanSquaredError
+    });
+
+    return model.fit(inputs, labels, {
+        batchSize,
+        epochs,
+        shuffle: true,
+        callbacks: tfvis.show.fitCallbacks(
+            visorElement.elt,
+            ['loss'],
+            { height: 200, callbacks: ['onEpochEnd'] }
+        )
+    }).then(() => {
+        return model
+    })
+}
+
+function predict(model) {
+    const {inputMax, inputMin, labelMin, labelMax} = tensorData
+    
+    // Generate predictions for a uniform range of numbers between 0 and 1;
+    // We un-normalize the data by doing the inverse of the min-max scaling
+    // that we did earlier.
+    const [xs, preds] = tf.tidy(() => {
+  
+      const xs = tf.linspace(0, 1, 100)
+      const preds = model.predict(xs.reshape([100, 1]))
+  
+      const unNormXs = xs
+        .mul(inputMax.sub(inputMin))
+        .add(inputMin)
+  
+      const unNormPreds = preds
+        .mul(labelMax.sub(labelMin))
+        .add(labelMin)
+  
+      // Un-normalize the data
+      return [unNormXs.dataSync(), unNormPreds.dataSync()]
+    })
+
+    const predictedPoints = Array.from(xs).map((val, i) => {
+      return [val, preds[i]]
+    });
+  
+    return predictedPoints
+}
+
+function predictLabel(model, input) {
+    const {inputMax, inputMin, labelMin, labelMax} = tensorData
+
+    const [xs, preds] = tf.tidy(() => {
+  
+        const xs = tf.tensor1d([input])
+            .sub(inputMin)
+            .div(inputMax.sub(inputMin))
+
+        const preds = model.predict(xs)
+    
+        const unNormXs = xs
+          .mul(inputMax.sub(inputMin))
+          .add(inputMin)
+    
+        const unNormPreds = preds
+          .mul(labelMax.sub(labelMin))
+          .add(labelMin)
+    
+        // Un-normalize the data
+        return [unNormXs.dataSync(), unNormPreds.dataSync()]
+    })
+  
+    return [xs[0], preds[0]]
+}
+
 
 function setupUI() {
     displayElement = createDiv()
@@ -31,7 +135,19 @@ function setupUI() {
     ySel.changed(() => {
         predictedDataRange = null
     })
-            
+
+    let trainButton = createButton('Train model')
+    trainButton.position(100, 30)
+    trainButton.mousePressed(() => {
+        let xName = xSel.value()
+        let yName = ySel.value()
+        tensorData = loadedData.convertToTensor(xName, yName)
+        trainModel().then(m => {
+            model = m
+            predictedDataRange = predict(model, tensorData)
+        })
+    })
+
     for (let key of loadedData.keys) {
         xSel.option(key)
     }
@@ -54,6 +170,10 @@ function setup() {
 
 function draw() {
     drawScatterplot()
+
+    if (predictedDataRange) {
+        drawPredictedRange(predictedDataRange)
+    }
 }
 
 function drawScatterplot() {
@@ -104,4 +224,27 @@ function drawScatterplot() {
 
     elementData.parent(displayElement)
     pop()
+}
+
+function drawPredictedRange() {
+    let xName = xSel.value()
+    let yName = ySel.value()
+
+    let data = loadedData.data.filter(e => e[xName] !== null && e[yName] !== null)
+    
+    const xData = data.map(e => e[xName])
+    const yData = data.map(e => e[yName])
+
+    const xDataMin = min(xData)
+    const xDataMax = max(xData)
+    const yDataMin = min(yData)
+    const yDataMax = max(yData)
+
+    for (let element of predictedDataRange) {
+        const x = map(element[0], xDataMin, xDataMax, 20, width-20)
+        const y = map(element[1], yDataMin, yDataMax, height-20, 20)
+
+        fill(0, 0, 255)
+        square(x, y, 5)
+    }
 }
