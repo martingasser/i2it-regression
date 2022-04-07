@@ -10,6 +10,7 @@ let ySel
 let visorElement
 let displayElement
 let displayCanvas
+let inputElement
 
 const batchSize = 32;
 const epochs = 100;
@@ -148,6 +149,14 @@ function setupUI() {
         })
     })
 
+    inputElement = createInput()
+    inputElement.position(10, 700)
+
+    inputElement.changed(() => {
+        let inputNumber = Number.parseFloat(inputElement.value())
+        predictedData = predictLabel(model, inputNumber)
+    })
+
     for (let key of loadedData.keys) {
         xSel.option(key)
     }
@@ -247,4 +256,25 @@ function drawPredictedRange() {
         fill(0, 0, 255)
         square(x, y, 5)
     }
+}
+
+function drawPrediction() {
+    let xName = xSel.value()
+    let yName = ySel.value()
+
+    let data = loadedData.data.filter(e => e[xName] !== null && e[yName] !== null)
+    
+    const xData = data.map(e => e[xName])
+    const yData = data.map(e => e[yName])
+
+    const xDataMin = min(xData)
+    const xDataMax = max(xData)
+    const yDataMin = min(yData)
+    const yDataMax = max(yData)
+
+    const x = map(predictedData[0], xDataMin, xDataMax, 20, width-20)
+    const y = map(predictedData[1], yDataMin, yDataMax, height-20, 20)
+
+    fill(0, 255, 0)
+    square(x, y, 10)
 }
