@@ -183,6 +183,10 @@ function draw() {
     if (predictedDataRange) {
         drawPredictedRange(predictedDataRange)
     }
+
+    if (predictedData) {
+        drawPrediction()
+    }
 }
 
 function drawScatterplot() {
