@@ -60,6 +60,14 @@ class Data {
         }
     }
 
+    encodeValue(key, value) {
+        if (this.stringToInt[key] !== undefined) {
+            return this.stringToInt[key][value]
+        } else {
+            return value
+        }
+    }
+
     convertToTensor(xName, yName) {
         return tf.tidy(() => {
             const data = this.data

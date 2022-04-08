@@ -43,6 +43,7 @@ function setupUI() {
 
 function setup() {
     loadedData = new Data()
+
     loadedData.loadJSON('./data/carsData.json').then(() => {
         setupUI()
     })
